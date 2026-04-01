@@ -123,6 +123,8 @@ model Response {
   isCorrect    Boolean?
   earnedPoints Int?
   flagged      Boolean  @default(false)
+
+  @@unique([attemptId, questionId])
 }
 
 // ─── 학습 ───

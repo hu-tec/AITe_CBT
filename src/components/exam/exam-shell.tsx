@@ -46,33 +46,35 @@ export function ExamShell(props: Props) {
     }
   }, []);
 
-  // 자동 저장
-  const saveCurrentAnswer = useCallback(async () => {
+  // 자동 저장 (변경된 모든 답안)
+  const savedAnswers = useRef<Record<string, string>>({});
+  const saveAllAnswers = useCallback(async () => {
     const s = useExamStore.getState();
-    const q = s.questions[s.currentIndex];
-    if (!q) return;
-    const answer = s.answers[q.id];
-    if (answer === undefined) return;
-
-    try {
-      await fetch(`/api/attempts/${s.attemptId}/save`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          questionId: q.id,
-          answer,
-          flagged: s.flagged.has(q.id),
-        }),
-      });
-    } catch {}
+    for (const q of s.questions) {
+      const answer = s.answers[q.id];
+      if (answer === undefined) continue;
+      if (savedAnswers.current[q.id] === answer) continue;
+      try {
+        await fetch(`/api/attempts/${s.attemptId}/save`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            questionId: q.id,
+            answer,
+            flagged: s.flagged.has(q.id),
+          }),
+        });
+        savedAnswers.current[q.id] = answer;
+      } catch {}
+    }
   }, []);
 
   useEffect(() => {
-    saveTimer.current = setInterval(saveCurrentAnswer, 5000);
+    saveTimer.current = setInterval(saveAllAnswers, 5000);
     return () => {
       if (saveTimer.current) clearInterval(saveTimer.current);
     };
-  }, [saveCurrentAnswer]);
+  }, [saveAllAnswers]);
 
   // 타이머
   useEffect(() => {

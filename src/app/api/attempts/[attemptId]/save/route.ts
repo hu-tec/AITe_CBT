@@ -30,15 +30,9 @@ export async function POST(
     return NextResponse.json({ error: "Already submitted" }, { status: 400 });
   }
 
-  // 답안 저장 (upsert)
   await prisma.response.upsert({
     where: {
-      id: await prisma.response
-        .findFirst({
-          where: { attemptId, questionId },
-          select: { id: true },
-        })
-        .then((r) => r?.id ?? ""),
+      attemptId_questionId: { attemptId, questionId },
     },
     update: {
       answer: answer ?? "",
