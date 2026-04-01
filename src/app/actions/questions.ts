@@ -134,7 +134,7 @@ export async function getQuestions(params: {
   if (type) where.type = type;
   if (difficulty) where.difficulty = difficulty;
   if (search) {
-    where.content = { contains: search, mode: "insensitive" };
+    where.content = { contains: search };
   }
 
   const [questions, total] = await Promise.all([

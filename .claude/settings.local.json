@@ -1,0 +1,9 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(shopt -s dotglob)",
+      "Bash(mv cbt-platform/* .)",
+      "Bash(rmdir cbt-platform:*)"
+    ]
+  }
+}
