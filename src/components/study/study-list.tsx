@@ -114,8 +114,11 @@ export function StudyList({ items }: { items: StudyItem[] }) {
                   {item.lastAnswer && (
                     <p className="text-sm text-red-600 mb-1">
                       내 답: {(() => {
-                        const idx = options?.findIndex((o) => o.label === item.lastAnswer);
-                        return idx != null && idx >= 0 ? String.fromCharCode(65 + idx) : item.lastAnswer;
+                        if (!options) return item.lastAnswer;
+                        return item.lastAnswer.split(",").map((lbl) => {
+                          const idx = options.findIndex((o) => o.label === lbl.trim());
+                          return idx >= 0 ? String.fromCharCode(65 + idx) : lbl;
+                        }).join(", ");
                       })()}
                     </p>
                   )}
