@@ -151,7 +151,8 @@ export function ResultReport({ exam, attempt, responses, categoryStats }: Props)
 
                   {r.question.options && (
                     <div className="mb-3 space-y-1">
-                      {r.question.options.map((opt) => {
+                      {r.question.options.map((opt, idx) => {
+                        const displayLabel = String.fromCharCode(65 + idx);
                         const isMyAnswer = r.answer.split(",").includes(opt.label);
                         const isCorrectOpt = opt.isCorrect;
                         let cls = "text-gray-600";
@@ -160,7 +161,7 @@ export function ResultReport({ exam, attempt, responses, categoryStats }: Props)
 
                         return (
                           <p key={opt.label} className={cls}>
-                            {opt.label}. {opt.text}
+                            {displayLabel}. {opt.text}
                             {isMyAnswer && " (내 답)"}
                             {isCorrectOpt && " (정답)"}
                           </p>

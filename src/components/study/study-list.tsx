@@ -70,11 +70,12 @@ export function StudyList({ items }: { items: StudyItem[] }) {
         {filtered.map((item) => {
           const options = item.question.options as Option[] | null;
           const isExpanded = expanded === item.id;
-          const correctOption = options?.find((o) => o.isCorrect);
+          const correctIdx = options?.findIndex((o) => o.isCorrect) ?? -1;
+          const correctOption = correctIdx >= 0 ? options![correctIdx] : null;
           const correctAnswer =
             item.question.type === "SHORT_ANSWER"
               ? item.question.answer
-              : correctOption?.label;
+              : correctIdx >= 0 ? String.fromCharCode(65 + correctIdx) : null;
 
           return (
             <Card
@@ -112,7 +113,10 @@ export function StudyList({ items }: { items: StudyItem[] }) {
                 <div className="mt-3 border-t border-gray-100 pt-3">
                   {item.lastAnswer && (
                     <p className="text-sm text-red-600 mb-1">
-                      내 답: {item.lastAnswer}
+                      내 답: {(() => {
+                        const idx = options?.findIndex((o) => o.label === item.lastAnswer);
+                        return idx != null && idx >= 0 ? String.fromCharCode(65 + idx) : item.lastAnswer;
+                      })()}
                     </p>
                   )}
                   <p className="text-sm text-green-700 mb-2">
@@ -122,14 +126,14 @@ export function StudyList({ items }: { items: StudyItem[] }) {
 
                   {options && (
                     <div className="mb-3 space-y-1">
-                      {options.map((opt) => (
+                      {options.map((opt, idx) => (
                         <p
                           key={opt.label}
                           className={`text-sm ${
                             opt.isCorrect ? "text-green-700 font-medium" : "text-gray-500"
                           }`}
                         >
-                          {opt.label}. {opt.text} {opt.isCorrect && "(정답)"}
+                          {String.fromCharCode(65 + idx)}. {opt.text} {opt.isCorrect && "(정답)"}
                         </p>
                       ))}
                     </div>
