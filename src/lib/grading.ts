@@ -120,5 +120,28 @@ export async function gradeAttempt(attemptId: string): Promise<GradeResult> {
     },
   });
 
+  // work_studio로 결과 전송
+  const user = await prisma.user.findUnique({ where: { id: attempt.userId } });
+  try {
+    await fetch("http://localhost:3000/api/cbt_results", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        name: user?.name ?? "",
+        email: user?.email ?? "",
+        examTitle: attempt.exam.title,
+        examMode: attempt.exam.mode,
+        score: totalScore,
+        totalPoints,
+        percentage,
+        passed,
+        categoryScores,
+        submittedAt: new Date().toISOString(),
+      }),
+    });
+  } catch {
+    // work_studio 전송 실패해도 채점 결과는 유지
+  }
+
   return { score: totalScore, totalPoints, percentage, passed, categoryScores };
 }
