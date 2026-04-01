@@ -12,9 +12,7 @@ export default function LoginPage() {
         </div>
         <LoginForm />
         <div className="mt-4 rounded-lg bg-gray-50 p-3 text-xs text-gray-400">
-          <p className="font-medium mb-1">테스트 계정</p>
-          <p>학생: test@test.com / test</p>
-          <p>관리자: admin@aite.local / admin123</p>
+          <p>테스트: test@test.com / test</p>
         </div>
         <p className="mt-4 text-center text-sm text-gray-500">
           계정이 없으신가요?{" "}
