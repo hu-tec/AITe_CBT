@@ -1,5 +1,7 @@
-import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { corsJson, corsOptions } from "../../cors";
+
+export async function OPTIONS() { return corsOptions(); }
 
 export async function GET(
   _req: Request,
@@ -10,8 +12,8 @@ export async function GET(
     where: { id },
     include: { category: true },
   });
-  if (!question) return NextResponse.json({ error: "Not found" }, { status: 404 });
-  return NextResponse.json(question);
+  if (!question) return corsJson({ error: "Not found" }, 404);
+  return corsJson(question);
 }
 
 export async function PUT(
@@ -33,7 +35,7 @@ export async function PUT(
       categoryId: body.categoryId,
     },
   });
-  return NextResponse.json(question);
+  return corsJson(question);
 }
 
 export async function DELETE(
@@ -42,5 +44,5 @@ export async function DELETE(
 ) {
   const { id } = await ctx.params;
   await prisma.question.delete({ where: { id } });
-  return NextResponse.json({ success: true });
+  return corsJson({ success: true });
 }

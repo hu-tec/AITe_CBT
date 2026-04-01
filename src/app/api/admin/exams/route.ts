@@ -1,5 +1,7 @@
-import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { corsJson, corsOptions } from "../cors";
+
+export async function OPTIONS() { return corsOptions(); }
 
 export async function GET() {
   const exams = await prisma.exam.findMany({
@@ -12,7 +14,7 @@ export async function GET() {
     },
     orderBy: { createdAt: "desc" },
   });
-  return NextResponse.json(exams);
+  return corsJson(exams);
 }
 
 export async function POST(request: Request) {
@@ -37,5 +39,5 @@ export async function POST(request: Request) {
         : undefined,
     },
   });
-  return NextResponse.json(exam, { status: 201 });
+  return corsJson(exam, 201);
 }

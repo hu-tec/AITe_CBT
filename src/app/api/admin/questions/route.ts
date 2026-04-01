@@ -1,6 +1,8 @@
-import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { corsJson, corsOptions } from "../cors";
+
+export async function OPTIONS() { return corsOptions(); }
 
 export async function GET(request: NextRequest) {
   const { searchParams } = request.nextUrl;
@@ -22,7 +24,7 @@ export async function GET(request: NextRequest) {
     prisma.question.count({ where }),
   ]);
 
-  return NextResponse.json({ questions, total });
+  return corsJson({ questions, total });
 }
 
 export async function POST(request: Request) {
@@ -39,5 +41,5 @@ export async function POST(request: Request) {
       categoryId: body.categoryId,
     },
   });
-  return NextResponse.json(question, { status: 201 });
+  return corsJson(question, 201);
 }
