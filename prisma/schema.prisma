@@ -1,0 +1,141 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ─── 사용자 ───
+model User {
+  id            String        @id @default(cuid())
+  email         String        @unique
+  name          String
+  password      String
+  role          Role          @default(STUDENT)
+  attempts      Attempt[]
+  studyRecords  StudyRecord[]
+  createdAt     DateTime      @default(now())
+}
+
+enum Role {
+  ADMIN
+  STUDENT
+}
+
+// ─── 문제은행 ───
+model Category {
+  id        String     @id @default(cuid())
+  name      String
+  parentId  String?
+  parent    Category?  @relation("CategoryTree", fields: [parentId], references: [id])
+  children  Category[] @relation("CategoryTree")
+  questions Question[]
+}
+
+model Question {
+  id          String       @id @default(cuid())
+  type        QuestionType
+  content     String
+  options     Json?
+  answer      String?
+  explanation String?
+  difficulty  Int          @default(3)
+  points      Int          @default(10)
+  categoryId  String
+  category    Category     @relation(fields: [categoryId], references: [id])
+  examItems    ExamItem[]
+  responses    Response[]
+  studyRecords StudyRecord[]
+  createdAt    DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
+}
+
+enum QuestionType {
+  MULTIPLE_CHOICE
+  MULTIPLE_SELECT
+  SHORT_ANSWER
+  TRUE_FALSE
+}
+
+// ─── 시험 ───
+model Exam {
+  id               String     @id @default(cuid())
+  title            String
+  description      String?
+  mode             ExamMode
+  timeLimitMin     Int
+  passingScore     Int
+  shuffleQuestions Boolean    @default(true)
+  shuffleOptions   Boolean    @default(true)
+  isPublished      Boolean    @default(false)
+  items            ExamItem[]
+  attempts         Attempt[]
+  createdAt        DateTime   @default(now())
+}
+
+enum ExamMode {
+  MOCK
+  OFFICIAL
+}
+
+model ExamItem {
+  id         String   @id @default(cuid())
+  examId     String
+  exam       Exam     @relation(fields: [examId], references: [id], onDelete: Cascade)
+  questionId String
+  question   Question @relation(fields: [questionId], references: [id])
+  order      Int
+
+  @@unique([examId, questionId])
+}
+
+// ─── 응시 ───
+model Attempt {
+  id          String        @id @default(cuid())
+  userId      String
+  user        User          @relation(fields: [userId], references: [id])
+  examId      String
+  exam        Exam          @relation(fields: [examId], references: [id])
+  status      AttemptStatus @default(IN_PROGRESS)
+  score       Int?
+  totalPoints Int?
+  passed      Boolean?
+  startedAt   DateTime      @default(now())
+  submittedAt DateTime?
+  responses   Response[]
+}
+
+enum AttemptStatus {
+  IN_PROGRESS
+  SUBMITTED
+  GRADED
+}
+
+model Response {
+  id           String   @id @default(cuid())
+  attemptId    String
+  attempt      Attempt  @relation(fields: [attemptId], references: [id], onDelete: Cascade)
+  questionId   String
+  question     Question @relation(fields: [questionId], references: [id])
+  answer       String
+  isCorrect    Boolean?
+  earnedPoints Int?
+  flagged      Boolean  @default(false)
+}
+
+// ─── 학습 ───
+model StudyRecord {
+  id             String    @id @default(cuid())
+  userId         String
+  user           User      @relation(fields: [userId], references: [id])
+  questionId     String
+  question       Question  @relation(fields: [questionId], references: [id])
+  reviewCount    Int       @default(0)
+  lastReviewedAt DateTime?
+  mastered       Boolean   @default(false)
+  createdAt      DateTime  @default(now())
+
+  @@unique([userId, questionId])
+}
