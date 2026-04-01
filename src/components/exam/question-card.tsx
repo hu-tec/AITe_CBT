@@ -49,27 +49,30 @@ export function QuestionCard({
       {/* 객관식 (단일) */}
       {question.type === "MULTIPLE_CHOICE" && question.options && (
         <div className="space-y-2">
-          {question.options.map((opt) => (
-            <label
-              key={opt.label}
-              className={`flex cursor-pointer items-center gap-3 rounded-lg border p-3 transition-colors ${
-                answer === opt.label
-                  ? "border-blue-500 bg-blue-50"
-                  : "border-gray-200 hover:bg-gray-50"
-              }`}
-            >
-              <input
-                type="radio"
-                name={`q-${question.id}`}
-                value={opt.label}
-                checked={answer === opt.label}
-                onChange={() => onAnswer(opt.label)}
-                className="accent-blue-600"
-              />
-              <span className="text-sm font-medium text-gray-500 w-5">{opt.label}</span>
-              <span className="text-sm">{opt.text}</span>
-            </label>
-          ))}
+          {question.options.map((opt, idx) => {
+            const displayLabel = String.fromCharCode(65 + idx);
+            return (
+              <label
+                key={opt.label}
+                className={`flex cursor-pointer items-center gap-3 rounded-lg border p-3 transition-colors ${
+                  answer === opt.label
+                    ? "border-blue-500 bg-blue-50"
+                    : "border-gray-200 hover:bg-gray-50"
+                }`}
+              >
+                <input
+                  type="radio"
+                  name={`q-${question.id}`}
+                  value={opt.label}
+                  checked={answer === opt.label}
+                  onChange={() => onAnswer(opt.label)}
+                  className="accent-blue-600"
+                />
+                <span className="text-sm font-medium text-gray-500 w-5">{displayLabel}</span>
+                <span className="text-sm">{opt.text}</span>
+              </label>
+            );
+          })}
         </div>
       )}
 
@@ -77,7 +80,8 @@ export function QuestionCard({
       {question.type === "MULTIPLE_SELECT" && question.options && (
         <div className="space-y-2">
           <p className="mb-2 text-xs text-gray-400">복수 선택 가능</p>
-          {question.options.map((opt) => {
+          {question.options.map((opt, idx) => {
+            const displayLabel = String.fromCharCode(65 + idx);
             const checked = selectedLabels.includes(opt.label);
             return (
               <label
@@ -99,7 +103,7 @@ export function QuestionCard({
                   }}
                   className="accent-blue-600"
                 />
-                <span className="text-sm font-medium text-gray-500 w-5">{opt.label}</span>
+                <span className="text-sm font-medium text-gray-500 w-5">{displayLabel}</span>
                 <span className="text-sm">{opt.text}</span>
               </label>
             );
