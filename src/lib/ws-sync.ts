@@ -27,14 +27,18 @@ interface WSRow {
   created_at: string;
 }
 
-/** work_studio question JSON blob 파싱 결과 */
-interface WSQuestion {
+/** work_studio JSON blob 공통 분��� 필드 */
+interface WSClassification {
   _level_area?: string;
   _level_div?: string;
   _level_grade?: string;
   _field_big?: string;
   _field_mid?: string;
   _field_sm?: string;
+}
+
+/** work_studio question JSON blob 파싱 결과 */
+interface WSQuestion extends WSClassification {
   type?: string;
   difficulty?: string;
   points?: string;
@@ -43,9 +47,27 @@ interface WSQuestion {
   choices?: string;
   answer?: string;
   explanation?: string;
-  // CBT 역동기화 시 추가되는 메타
   _cbtId?: string;
-  _cbtCategoryPath?: string;
+}
+
+/** work_studio curriculum JSON blob */
+interface WSCurriculum extends WSClassification {
+  week?: string;
+  topic?: string;
+  objective?: string;
+  activity?: string;
+  assessment?: string;
+  textbookRef?: string;
+}
+
+/** work_studio textbook JSON blob */
+interface WSTextbook extends WSClassification {
+  unit?: string;
+  title?: string;
+  summary?: string;
+  difficulty?: string;
+  pages?: string;
+  fileUrl?: string;
 }
 
 // ── 매핑 상수 ──
@@ -133,50 +155,54 @@ function difficultyToStr(n: number): string {
 
 /**
  * WS 분류 → CBT Category 찾기/생성
- * 계층: _level_area > _field_big (2단계)
+ * 계층: _level_area > _level_div > _field_big (3단계)
  */
-async function findOrCreateCategory(ws: WSQuestion): Promise<string> {
-  const topName = ws._level_area || "미분류";
-  const childName = ws._field_big || null;
+async function findOrCreateCategory(ws: WSClassification): Promise<string> {
+  const names = [
+    ws._level_area || "미분류",
+    ws._level_div || null,
+    ws._field_big || null,
+  ].filter(Boolean) as string[];
 
-  // 최상위 카테고리
-  let top = await prisma.category.findFirst({
-    where: { name: topName, parentId: null },
-  });
-  if (!top) {
-    top = await prisma.category.create({ data: { name: topName } });
+  let parentId: string | null = null;
+  let lastId = "";
+
+  for (const name of names) {
+    const where = { name, parentId };
+    const existing = await prisma.category.findFirst({ where, select: { id: true } });
+    if (existing) {
+      lastId = existing.id;
+    } else {
+      const created = await prisma.category.create({ data: { name, parentId }, select: { id: true } });
+      lastId = created.id;
+    }
+    parentId = lastId;
   }
 
-  if (!childName) return top.id;
-
-  // 하위 카테고리
-  let child = await prisma.category.findFirst({
-    where: { name: childName, parentId: top.id },
-  });
-  if (!child) {
-    child = await prisma.category.create({
-      data: { name: childName, parentId: top.id },
-    });
-  }
-  return child.id;
+  return lastId;
 }
 
 /**
- * CBT Category → WS 분류축 역추출
+ * CBT Category → WS 분류축 역추출 (3단계 → _level_area, _level_div, _field_big)
  */
 async function categoryToWS(
   categoryId: string
-): Promise<{ _level_area: string; _field_big: string }> {
-  const cat = await prisma.category.findUnique({
-    where: { id: categoryId },
-    include: { parent: true },
-  });
-  if (!cat) return { _level_area: "미분류", _field_big: "" };
-
-  if (cat.parent) {
-    return { _level_area: cat.parent.name, _field_big: cat.name };
+): Promise<{ _level_area: string; _level_div: string; _field_big: string }> {
+  // 카테고리 체인을 루트까지 추적
+  const chain: string[] = [];
+  let current = await prisma.category.findUnique({ where: { id: categoryId } });
+  while (current) {
+    chain.unshift(current.name);
+    current = current.parentId
+      ? await prisma.category.findUnique({ where: { id: current.parentId } })
+      : null;
   }
-  return { _level_area: cat.name, _field_big: "" };
+
+  return {
+    _level_area: chain[0] || "미분류",
+    _level_div: chain[1] || "",
+    _field_big: chain[2] || "",
+  };
 }
 
 // ── WS API 호출 ──
@@ -309,7 +335,7 @@ async function questionToWS(question: {
   return {
     ...base,
     _level_area: base._level_area || catInfo._level_area,
-    _level_div: base._level_div || "",
+    _level_div: base._level_div || catInfo._level_div,
     _level_grade: base._level_grade || "",
     _field_big: base._field_big || catInfo._field_big,
     _field_mid: base._field_mid || "",
@@ -332,6 +358,8 @@ export type SyncResult = {
   imported: number;
   exported: number;
   errors: string[];
+  curriculum?: { imported: number; errors: string[] };
+  textbooks?: { imported: number; errors: string[] };
 };
 
 /**
@@ -470,5 +498,97 @@ export async function fullSync(): Promise<SyncResult> {
     }
   }
 
+  // Phase 3: 커리큘럼 + 교재 동기화 (WS→CBT 단방향)
+  result.curriculum = await importCurriculumFromWS();
+  result.textbooks = await importTextbooksFromWS();
+
   return result;
+}
+
+// ── 커리큘럼 동기화 ──
+
+export async function importCurriculumFromWS(): Promise<{ imported: number; errors: string[] }> {
+  const out = { imported: 0, errors: [] as string[] };
+
+  let rows: WSRow[];
+  try {
+    rows = await wsGet("/api/curriculum");
+  } catch (e) {
+    out.errors.push(`WS curriculum 연결 실패: ${e}`);
+    return out;
+  }
+
+  for (const row of rows) {
+    try {
+      const ws: WSCurriculum = JSON.parse(row.data);
+      const categoryId = await findOrCreateCategory(ws);
+
+      const data = {
+        week: parseInt(ws.week || "1") || 1,
+        topic: ws.topic || "",
+        objective: ws.objective || null,
+        activity: ws.activity || null,
+        assessment: ws.assessment || null,
+        textbookRef: ws.textbookRef || null,
+        categoryId,
+        wsRaw: row.data,
+        lastSyncAt: new Date(),
+      };
+
+      const existing = await prisma.curriculum.findUnique({ where: { wsId: row.id } });
+      if (existing) {
+        await prisma.curriculum.update({ where: { wsId: row.id }, data });
+      } else {
+        await prisma.curriculum.create({ data: { ...data, wsId: row.id } });
+      }
+      out.imported++;
+    } catch (e) {
+      out.errors.push(`WS curriculum #${row.id}: ${e}`);
+    }
+  }
+  return out;
+}
+
+// ── 교재 동기화 ──
+
+export async function importTextbooksFromWS(): Promise<{ imported: number; errors: string[] }> {
+  const out = { imported: 0, errors: [] as string[] };
+
+  let rows: WSRow[];
+  try {
+    rows = await wsGet("/api/textbooks");
+  } catch (e) {
+    out.errors.push(`WS textbooks 연결 실패: ${e}`);
+    return out;
+  }
+
+  for (const row of rows) {
+    try {
+      const ws: WSTextbook = JSON.parse(row.data);
+      const categoryId = await findOrCreateCategory(ws);
+
+      const data = {
+        unit: parseInt(ws.unit || "1") || 1,
+        title: ws.title || "",
+        summary: ws.summary || null,
+        difficulty: ws.difficulty || null,
+        pages: parseInt(ws.pages || "0") || null,
+        fileUrl: ws.fileUrl || null,
+        categoryId,
+        wsRaw: row.data,
+        lastSyncAt: new Date(),
+      };
+
+      const existing = await prisma.textbook.findUnique({ where: { wsId: row.id } });
+      if (existing) {
+        await prisma.textbook.update({ where: { wsId: row.id }, data });
+      } else {
+        await prisma.textbook.create({ data: { ...data, wsId: row.id } });
+      }
+      out.imported++;
+    } catch (e) {
+      out.errors.push(`WS textbook #${row.id}: ${e}`);
+    }
+  }
+  return out;
 }

@@ -26,12 +26,14 @@ enum Role {
 
 // ─── 문제은행 ───
 model Category {
-  id        String     @id @default(cuid())
-  name      String
-  parentId  String?
-  parent    Category?  @relation("CategoryTree", fields: [parentId], references: [id])
-  children  Category[] @relation("CategoryTree")
-  questions Question[]
+  id          String       @id @default(cuid())
+  name        String
+  parentId    String?
+  parent      Category?    @relation("CategoryTree", fields: [parentId], references: [id])
+  children    Category[]   @relation("CategoryTree")
+  questions   Question[]
+  curricula   Curriculum[]
+  textbooks   Textbook[]
 }
 
 model Question {
@@ -62,6 +64,42 @@ enum QuestionType {
   MULTIPLE_SELECT
   SHORT_ANSWER
   TRUE_FALSE
+}
+
+// ─── 커리큘럼 ───
+model Curriculum {
+  id          String   @id @default(cuid())
+  week        Int
+  topic       String
+  objective   String?
+  activity    String?
+  assessment  String?
+  textbookRef String?               // Textbook ID 참조
+  categoryId  String
+  category    Category @relation(fields: [categoryId], references: [id])
+  wsId        Int?     @unique
+  wsRaw       String?
+  lastSyncAt  DateTime?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+// ─── 교재 ───
+model Textbook {
+  id         String   @id @default(cuid())
+  unit       Int
+  title      String
+  summary    String?
+  difficulty String?               // 초급/중급/고급
+  pages      Int?
+  fileUrl    String?
+  categoryId String
+  category   Category @relation(fields: [categoryId], references: [id])
+  wsId       Int?     @unique
+  wsRaw      String?
+  lastSyncAt DateTime?
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
 }
 
 // ─── 시험 ───
