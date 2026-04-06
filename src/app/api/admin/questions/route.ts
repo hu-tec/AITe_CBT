@@ -1,6 +1,7 @@
 import type { NextRequest } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { corsJson, corsOptions } from "../cors";
+import { pushToWS } from "@/lib/ws-sync";
 
 export async function OPTIONS() { return corsOptions(); }
 
@@ -41,5 +42,6 @@ export async function POST(request: Request) {
       categoryId: body.categoryId,
     },
   });
+  pushToWS(question.id).catch(() => {});
   return corsJson(question, 201);
 }

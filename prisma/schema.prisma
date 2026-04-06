@@ -50,6 +50,11 @@ model Question {
   studyRecords StudyRecord[]
   createdAt    DateTime     @default(now())
   updatedAt   DateTime     @updatedAt
+
+  // work_studio 동기화
+  wsId        Int?         @unique  // work_studio question ID
+  wsRaw       String?               // WS 원본 JSON (역변환 보존)
+  lastSyncAt  DateTime?
 }
 
 enum QuestionType {

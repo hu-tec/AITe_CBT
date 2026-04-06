@@ -1,5 +1,6 @@
 import { prisma } from "@/lib/prisma";
 import { corsJson, corsOptions } from "../../cors";
+import { pushToWS, deleteFromWS } from "@/lib/ws-sync";
 
 export async function OPTIONS() { return corsOptions(); }
 
@@ -35,6 +36,7 @@ export async function PUT(
       categoryId: body.categoryId,
     },
   });
+  pushToWS(id).catch(() => {});
   return corsJson(question);
 }
 
@@ -43,6 +45,8 @@ export async function DELETE(
   ctx: RouteContext<"/api/admin/questions/[id]">
 ) {
   const { id } = await ctx.params;
+  const q = await prisma.question.findUnique({ where: { id }, select: { wsId: true } });
   await prisma.question.delete({ where: { id } });
+  if (q?.wsId) deleteFromWS(q.wsId).catch(() => {});
   return corsJson({ success: true });
 }

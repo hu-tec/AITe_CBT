@@ -121,9 +121,10 @@ export async function gradeAttempt(attemptId: string): Promise<GradeResult> {
   });
 
   // work_studio로 결과 전송
+  const wsUrl = process.env.WORK_STUDIO_URL || "http://localhost:3000";
   const user = await prisma.user.findUnique({ where: { id: attempt.userId } });
   try {
-    await fetch("http://localhost:3000/api/cbt_results", {
+    await fetch(`${wsUrl}/api/cbt_results`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({

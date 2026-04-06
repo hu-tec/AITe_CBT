@@ -5,6 +5,7 @@ import { auth } from "@/lib/auth";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { z } from "zod";
+import { pushToWS, deleteFromWS } from "@/lib/ws-sync";
 
 const questionSchema = z.object({
   type: z.enum(["MULTIPLE_CHOICE", "MULTIPLE_SELECT", "SHORT_ANSWER", "TRUE_FALSE"]),
@@ -61,12 +62,15 @@ export async function createQuestion(
     }
   }
 
-  await prisma.question.create({
+  const created = await prisma.question.create({
     data: {
       ...rest,
       options: parsedOptions,
     },
   });
+
+  // work_studio 자동 동기화 (fire-and-forget)
+  pushToWS(created.id).catch(() => {});
 
   revalidatePath("/admin/questions");
   redirect("/admin/questions");
@@ -109,13 +113,19 @@ export async function updateQuestion(
     data: { ...rest, options: parsedOptions },
   });
 
+  // work_studio 자동 동기화
+  pushToWS(id).catch(() => {});
+
   revalidatePath("/admin/questions");
   redirect("/admin/questions");
 }
 
 export async function deleteQuestion(id: string) {
   await requireAdmin();
+  // 삭제 전 wsId 확인 → WS 측도 삭제
+  const q = await prisma.question.findUnique({ where: { id }, select: { wsId: true } });
   await prisma.question.delete({ where: { id } });
+  if (q?.wsId) deleteFromWS(q.wsId).catch(() => {});
   revalidatePath("/admin/questions");
 }
 
