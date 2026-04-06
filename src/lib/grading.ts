@@ -120,9 +120,30 @@ export async function gradeAttempt(attemptId: string): Promise<GradeResult> {
     },
   });
 
-  // work_studio로 결과 전송
+  // work_studio로 결과 전송 (답안 원문 + 문항별 채점 포함)
   const wsUrl = process.env.WORK_STUDIO_URL || "http://localhost:3000";
   const user = await prisma.user.findUnique({ where: { id: attempt.userId } });
+
+  const responses = attempt.responses.map((r) => {
+    const q = r.question;
+    const options = q.options as Option[] | null;
+    return {
+      questionId: q.id,
+      questionText: q.content,
+      questionType: q.type,
+      category: q.category.name,
+      points: q.points,
+      earnedPoints: r.isCorrect ? q.points : 0,
+      isCorrect: r.isCorrect ?? false,
+      userAnswer: r.answer,
+      correctAnswer:
+        q.type === "SHORT_ANSWER"
+          ? q.answer ?? ""
+          : (options?.filter((o) => o.isCorrect).map((o) => o.label).join(",") ?? ""),
+      explanation: q.explanation ?? "",
+    };
+  });
+
   try {
     await fetch(`${wsUrl}/api/cbt_results`, {
       method: "POST",
@@ -137,6 +158,7 @@ export async function gradeAttempt(attemptId: string): Promise<GradeResult> {
         percentage,
         passed,
         categoryScores,
+        responses,
         submittedAt: new Date().toISOString(),
       }),
     });
